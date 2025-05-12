@@ -2,6 +2,9 @@ const express = require('express');
 const mysql = require('mysql2');
 const app = express();
 const port = process.env.PORT || 3000;
+const multer = require('multer');
+
+const upload = multer();
 
 // Middleware untuk parsing JSON
 app.use(express.json());
@@ -58,23 +61,47 @@ app.post('/users/new', (req, res) => {
 });
 
 // Update user
-// Update user
-app.put('/users/edit/:id', (req, res) => {
-    const userId = req.params.id;
-    const { foto, nama_lengkap, username, nomor_telepon, email, password, role } = req.body;
+app.put('/users/edit/:id', upload.none(), (req, res) => {
+  // Cetak seluruh req.body untuk debugging
+  console.log("Received req.body:", req.body);
+
+  // Trim setiap field
+  const trimmedData = {
+    foto: req.body.foto, // Tidak trim karena mungkin null atau file
+    nama_lengkap: req.body.nama_lengkap ? req.body.nama_lengkap.trim() : '',
+    username: req.body.username ? req.body.username.trim() : '',
+    nomor_telepon: req.body.nomor_telepon ? req.body.nomor_telepon.trim() : '',
+    email: req.body.email ? req.body.email.trim() : '',
+    password: req.body.password ? req.body.password.trim() : '',
+    role: req.body.role ? req.body.role.trim() : ''
+  };
+
+  // Validasi: Pastikan semua field wajib tidak kosong
+  if (!trimmedData.nama_lengkap || !trimmedData.username || !trimmedData.nomor_telepon || !trimmedData.email || !trimmedData.password || !trimmedData.role) {
+    return res.status(400).json({ status: 'error', message: 'Data tidak boleh kosong!' });
+  }
+
+  const userId = req.params.id;
+  const query = `UPDATE User SET foto = ?, nama_lengkap = ?, username = ?, nomor_telepon = ?, email = ?, password = ?, role = ? WHERE id_user = ?`;
   
-    if (!nama_lengkap || !username || !nomor_telepon || !email || !password || !role) {
-      return res.status(400).json({ status: 'error', message: 'Data tidak boleh kosong!' });
-    }
-  
-    const query = `UPDATE User SET foto = ?, nama_lengkap = ?, username = ?, nomor_telepon = ?, email = ?, password = ?, role = ? 
-                   WHERE id_user = ?`;
-    connection.query(query, [foto || null, nama_lengkap, username, nomor_telepon, email, password, role, userId],
-      (err, result) => {
-        if (err) return res.status(500).json({ status: 'error', message: err });
-        res.json({ status: 'success', message: 'User updated successfully' });
-    });
+  connection.query(query, [
+      trimmedData.foto || null, 
+      trimmedData.nama_lengkap, 
+      trimmedData.username, 
+      trimmedData.nomor_telepon, 
+      trimmedData.email, 
+      trimmedData.password, 
+      trimmedData.role, 
+      userId
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("SQL Error:", err);
+        return res.status(500).json({ status: 'error', message: err });
+      }
+      res.json({ status: 'success', message: 'User updated successfully' });
   });
+});
 // Delete user
 app.delete('/users/delete/:id', (req, res) => {
   const userId = req.params.id;
